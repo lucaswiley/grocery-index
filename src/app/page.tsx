@@ -9,18 +9,14 @@ import { uploadReceipt } from '@/lib/uploadReceipt';
 
 export default function Home() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleUpload = async (file: File) => {
-    setIsLoading(true);
     try {
       const receiptData = await uploadReceipt(file);
       setReceipts(prevReceipts => [receiptData, ...prevReceipts]);
     } catch (error) {
       console.error('Error processing receipt:', error);
       alert('Failed to process receipt. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 

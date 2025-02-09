@@ -33,16 +33,17 @@ async function retryApiCall<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T>
       ]);
 
       return result as T;
-    } catch (error: any) {
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error(`Attempt ${attempt} failed:`, {
-        message: error.message,
-        status: error.status,
-        type: error.type,
-        stack: error.stack
+        message: err.message,
+        status: err instanceof Error ? ('status' in err ? (err as { status?: unknown }).status : undefined) : undefined,
+        type: err instanceof Error ? ('type' in err ? (err as { type?: unknown }).type : undefined) : undefined,
+        stack: err.stack
       });
 
       if (attempt === maxRetries) {
-        throw error;
+        throw err;
       }
       
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
@@ -120,19 +121,21 @@ export async function POST(request: Request) {
         success: true,
         rawResponse: content
       }));
-    } catch (error: any) {
-      console.error('OpenAI API error:', error);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('OpenAI API error:', err);
       return new Response(
         JSON.stringify({
           error: 'Failed to process receipt',
-          details: error.message,
+          details: err.message,
           type: 'API_ERROR'
         }),
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Error processing receipt:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Error processing receipt:', err);
     return NextResponse.json(
       { error: 'Failed to process receipt' },
       { status: 500 }

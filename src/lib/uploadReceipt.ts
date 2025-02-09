@@ -10,19 +10,20 @@ async function retryRequest<T>(
   maxRetries = 3,
   baseDelay = 1000
 ): Promise<T> {
-  let lastError: any;
+  let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt} of ${maxRetries}...`);
       return await fn();
-    } catch (error: any) {
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error(`Attempt ${attempt} failed:`, {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: err.message,
+        name: err.name,
+        stack: err.stack
       });
-      lastError = error;
+      lastError = err;
       
       if (attempt === maxRetries) break;
       
@@ -57,9 +58,10 @@ async function compressImage(file: File): Promise<File> {
     const compressedFile = await imageCompression(file, options);
     console.log('Compressed file size:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB');
     return compressedFile;
-  } catch (error: any) {
-    console.error('Error compressing image:', error);
-    throw new Error('Failed to compress image: ' + (error.message || 'Unknown error'));
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Error compressing image:', err);
+    throw new Error('Failed to compress image: ' + err.message);
   }
 }
 
@@ -103,7 +105,18 @@ export async function uploadReceipt(file: File) {
         throw new Error('No JSON found in response');
       }
 
-      const parsedReceipt = JSON.parse(jsonMatch[0]);
+      type ParsedReceipt = {
+        storeName?: string;
+        totalCost: string | number;
+        items: Array<{
+          item: string;
+          price: string | number;
+          unit: string;
+          pricePerUnit: string | number;
+        }>;
+      };
+
+      const parsedReceipt = JSON.parse(jsonMatch[0]) as ParsedReceipt;
       
       return {
         id: Date.now().toString(),
@@ -112,7 +125,12 @@ export async function uploadReceipt(file: File) {
         createdAt: new Date(),
         updatedAt: new Date(),
         totalCost: Number(parsedReceipt.totalCost),
-        items: parsedReceipt.items.map((item: any) => ({
+        items: parsedReceipt.items.map((item: {
+          item: string;
+          price: string | number;
+          unit: string;
+          pricePerUnit: string | number;
+        }) => ({
           item: item.item,
           price: Number(item.price),
           unit: item.unit,

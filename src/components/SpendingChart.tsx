@@ -70,7 +70,7 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
                 color: '#1F2937', // text-text-primary
                 fontSize: '14px'
               }}
-              formatter={(value: any) => {
+              formatter={(value: number | string) => {
                 if (typeof value === 'number') {
                   return [`$${value.toFixed(2)}`, 'Total'];
                 }
@@ -116,7 +116,7 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
                 color: '#1F2937', // text-text-primary
                 fontSize: '14px'
               }}
-              formatter={(value: any) => {
+              formatter={(value: number | string) => {
                 if (typeof value === 'number') {
                   return [`$${value.toFixed(2)}`, 'Price per Unit'];
                 }

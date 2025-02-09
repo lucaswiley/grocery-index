@@ -15,31 +15,41 @@ interface ReceiptUploaderProps {
 }
 
 export default function ReceiptUploader({ onUpload }: ReceiptUploaderProps) {
-  const [files, setFiles] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleProcessFile = useCallback(async (fieldName: string, file: any, metadata: any, load: Function, error: Function, progress: Function, abort: Function) => {
+  // FilePond's type system is complex, using any here for simplicity
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const handleProcessFile = useCallback(async (fieldName: string, file: any, metadata: any, load: any, error: any) => {
     try {
       setIsUploading(true);
       await onUpload(file);
       load(file);
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('Upload error:', err);
-      error(err.message);
+      error(errorMessage);
     } finally {
       setIsUploading(false);
     }
+
+    return {
+      abort: () => {
+        setIsUploading(false);
+      }
+    };
   }, [onUpload]);
 
   return (
     <div className="w-full max-w-md mx-auto">
       <FilePond
-        files={files}
-        onupdatefiles={setFiles}
         allowMultiple={false}
         maxFiles={1}
         server={{
           process: handleProcessFile,
+          fetch: null,
+          revert: null,
+          restore: null,
+          load: null
         }}
         name="file"
         labelIdle='Drag & Drop your receipt or <span class="filepond--label-action">Browse</span>'
@@ -47,6 +57,8 @@ export default function ReceiptUploader({ onUpload }: ReceiptUploaderProps) {
         imagePreviewHeight={170}
         disabled={isUploading}
         className={isUploading ? 'opacity-50' : ''}
+        onwarning={(error) => console.warn('FilePond warning:', error)}
+        onerror={(error) => console.error('FilePond error:', error)}
       />
       {isUploading && (
         <div className="text-center mt-2 text-sm text-gray-600">
