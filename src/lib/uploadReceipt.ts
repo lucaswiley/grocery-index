@@ -1,4 +1,5 @@
 import imageCompression from 'browser-image-compression';
+import { Receipt } from '@/types/receipt';
 
 async function wait(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -106,14 +107,19 @@ export async function uploadReceipt(file: File) {
       
       return {
         id: Date.now().toString(),
-        storeName: parsedReceipt.storeName,
-        purchaseDate: new Date().toISOString(),
+        storeName: parsedReceipt.storeName || 'Unknown Store',
+        purchaseDate: new Date(), // Convert to Date object to match Receipt type
         createdAt: new Date(),
         updatedAt: new Date(),
-        totalCost: parsedReceipt.totalCost,
-        items: parsedReceipt.items,
+        totalCost: Number(parsedReceipt.totalCost),
+        items: parsedReceipt.items.map((item: any) => ({
+          item: item.item,
+          price: Number(item.price),
+          unit: item.unit,
+          pricePerUnit: Number(item.pricePerUnit)
+        })),
         imageUrl: '' // We might want to store the image URL in the future
-      };
+      } as Receipt;
     } catch (error: unknown) {
       const parseError = error instanceof Error ? error : new Error(String(error));
       console.error('Error parsing receipt data:', parseError);

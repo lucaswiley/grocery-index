@@ -33,19 +33,19 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
   const getBarColor = (price: number) => {
     const maxPrice = Math.max(...totalSpendingData.map(d => d.total));
     const normalized = price / maxPrice;
-    return `hsl(${Math.round(200 - normalized * 150)}, 70%, 50%)`;
+    return normalized > 0.8 ? '#1bae70' : `hsl(${Math.round(142)}, ${Math.round(70 + normalized * 20)}%, ${Math.round(40 + normalized * 20)}%)`;
   };
 
   const getScatterColor = (price: number) => {
     const maxPrice = Math.max(...unitPricesData.map(d => d.pricePerUnit));
     const normalized = price / maxPrice;
-    return `hsl(${Math.round(200 - normalized * 150)}, 70%, 50%)`;
+    return normalized > 0.8 ? '#1bae70' : `hsl(${Math.round(142)}, ${Math.round(70 + normalized * 20)}%, ${Math.round(40 + normalized * 20)}%)`;
   };
 
   return (
     <div className="space-y-8">
       <div className="w-full h-[400px]">
-        <h3 className="text-lg font-semibold mb-2">Total Spending by Item</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-2">Total Spending by Item</h3>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={totalSpendingData}
@@ -63,9 +63,13 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
               type="category" 
               dataKey="name" 
               width={90}
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '12px', fill: '#4B5563' }}
             />
             <Tooltip 
+              contentStyle={{
+                color: '#1F2937', // text-text-primary
+                fontSize: '14px'
+              }}
               formatter={(value: any) => {
                 if (typeof value === 'number') {
                   return [`$${value.toFixed(2)}`, 'Total'];
@@ -84,7 +88,7 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
       </div>
 
       <div className="w-full h-[400px]">
-        <h3 className="text-lg font-semibold mb-2">Price per Unit by Item</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-2">Price per Unit by Item</h3>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart
             margin={{
@@ -100,7 +104,7 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
               dataKey="name" 
               name="Item"
               width={90}
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '12px', fill: '#4B5563' }}
             />
             <YAxis 
               type="number"
@@ -108,6 +112,10 @@ export default function SpendingChart({ receipts }: SpendingChartProps) {
               name="Price per Unit"
             />
             <Tooltip 
+              contentStyle={{
+                color: '#1F2937', // text-text-primary
+                fontSize: '14px'
+              }}
               formatter={(value: any) => {
                 if (typeof value === 'number') {
                   return [`$${value.toFixed(2)}`, 'Price per Unit'];
