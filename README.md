@@ -1,6 +1,6 @@
 # Grocery Receipt Tracker
 
-A modern web application for tracking grocery expenses using receipt photos. Built with Next.js, React, and Tailwind CSS.
+Tracking grocery expenses using receipt photos. Next.js, React, OpenAI for OCR.
 
 ## Features
 
