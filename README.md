@@ -1,6 +1,6 @@
 # 🛒 Grocery Index
 
-A modern web application for tracking and analyzing grocery expenses using receipt photos. Upload your receipts and get instant insights into your spending patterns with detailed item breakdowns and price analysis.
+Tracking and analyzing grocery expenses using receipt photos. Upload your receipts and get instant insights into your spending patterns with detailed item breakdowns and price analysis.
 
 ## ✨ Features
 
