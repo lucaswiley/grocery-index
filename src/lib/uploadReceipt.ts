@@ -95,20 +95,37 @@ export async function uploadReceipt(file: File) {
       );
     }
 
-    // For now, return a dummy receipt while we debug the API response
-    return {
-      id: Date.now().toString(),
-      storeName: 'Test Store',
-      purchaseDate: new Date().toISOString(),
-      totalCost: 0,
-      items: []
-    };
-  } catch (error: any) {
+    try {
+      // Extract JSON from the response
+      const jsonMatch = responseData.rawResponse.match(/\{[\s\S]*\}/m);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+
+      const parsedReceipt = JSON.parse(jsonMatch[0]);
+      
+      return {
+        id: Date.now().toString(),
+        storeName: parsedReceipt.storeName,
+        purchaseDate: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalCost: parsedReceipt.totalCost,
+        items: parsedReceipt.items,
+        imageUrl: '' // We might want to store the image URL in the future
+      };
+    } catch (error: unknown) {
+      const parseError = error instanceof Error ? error : new Error(String(error));
+      console.error('Error parsing receipt data:', parseError);
+      throw new Error('Failed to parse receipt data: ' + parseError.message);
+    }
+  } catch (error: unknown) {
+    const uploadError = error instanceof Error ? error : new Error(String(error));
     console.error('Upload error:', {
-      message: error.message,
-      cause: error.cause,
-      stack: error.stack
+      message: uploadError.message,
+      cause: uploadError.cause,
+      stack: uploadError.stack
     });
-    throw error;
+    throw uploadError;
   }
 }
