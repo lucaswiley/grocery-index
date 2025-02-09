@@ -1,44 +1,50 @@
 import { NextResponse } from 'next/server';
-import { Anthropic } from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
-// Initialize Anthropic client
-const apiKey = process.env.ANTHROPIC_API_KEY || '';
-console.log('Environment variables:', {
-  NODE_ENV: process.env.NODE_ENV,
-  ANTHROPIC_API_KEY_LENGTH: apiKey.length,
-  HAS_API_KEY: Boolean(apiKey)
-});
+// Initialize OpenAI client
+const openaiKey = process.env.OPENAI_API_KEY;
 
-if (!apiKey) {
-  console.error('No API key found!');
-  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
+if (!openaiKey) {
+  throw new Error('Missing OPENAI_API_KEY environment variable');
 }
 
-// Verify API key format (should start with 'sk-ant')
-if (!apiKey.startsWith('sk-ant')) {
-  console.error('Invalid API key format');
-  throw new Error('Invalid ANTHROPIC_API_KEY format');
-}
-
-const anthropic = new Anthropic({
-  apiKey,
-  baseURL: 'https://api.anthropic.com/v1',
+const openai = new OpenAI({
+  apiKey: openaiKey,
 });
+
+console.log('OpenAI client initialized');
 
 // Add retry logic for API calls
-async function retryAnthropicCall<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+async function retryApiCall<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  const timeout = 30000; // 30 second timeout
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Request timeout')), timeout);
+  });
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt} of ${maxRetries}...`);
-      return await fn();
-    } catch (error: any) {
-      console.error(`Attempt ${attempt} failed:`, error);
       
+      // Race between the API call and timeout
+      const result = await Promise.race([
+        fn(),
+        timeoutPromise
+      ]);
+
+      return result as T;
+    } catch (error: any) {
+      console.error(`Attempt ${attempt} failed:`, {
+        message: error.message,
+        status: error.status,
+        type: error.type,
+        stack: error.stack
+      });
+
       if (attempt === maxRetries) {
         throw error;
       }
       
-      // Wait before retrying (exponential backoff)
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
       console.log(`Waiting ${delay}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -46,8 +52,6 @@ async function retryAnthropicCall<T>(fn: () => Promise<T>, maxRetries = 3): Prom
   }
   throw new Error('Should not reach here');
 }
-
-console.log('Anthropic client initialized');
 
 export async function POST(request: Request) {
   console.log('Received upload request');
@@ -71,81 +75,62 @@ export async function POST(request: Request) {
     const base64Image = buffer.toString('base64');
     console.log('Image converted to base64');
 
-    console.log('Sending request to Claude Vision API...');
-    let message;
+    console.log('Sending request to OpenAI API...');
     try {
-      message = await retryAnthropicCall(() => anthropic.messages.create({
-        model: 'claude-3-opus-20240229',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: [
+      const response = await retryApiCall(() => 
+        openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
             {
-              type: 'text',
-              text: 'Please analyze this receipt image and extract the following information in JSON format:\n' +
-                    '- Store name\n' +
-                    '- Date of purchase\n' +
-                    '- Total amount\n' +
-                    '- List of items with their prices\n' +
-                    'Format the response as valid JSON with these fields: storeName, purchaseDate, totalCost, items (array of {name, price, quantity, unit})'
-            },
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
-                data: base64Image
-              }
+              role: 'user',
+              content: [
+                { 
+                  type: 'text', 
+                  text: 'This is a grocery receipt. Extract the information and format as JSON.\n\nRequired Structure:\n{\n  "storeName": "Store Name Here",\n  "totalCost": 123.45,\n  "items": [\n    {\n      "item": "Item Name",\n      "price": 12.34\n    }\n  ]\n}\n\nRules:\n1. storeName must be a string\n2. totalCost must be a number (no currency symbols)\n3. items must be an array of objects\n4. Each item must have item (string) and price (number) fields\n5. Return only the JSON object, no markdown or other text\n\nImportant: Follow the exact structure above. Do not add any additional fields or text.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${base64Image}`
+                  }
+                }
+              ]
             }
-          ]
-        }]
+          ],
+          max_tokens: 1000,
+        })
+      );
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return new Response(
+          JSON.stringify({
+            error: 'Invalid API response',
+            details: 'No content in response',
+            type: 'API_ERROR'
+          }),
+          { status: 500 }
+        );
+      }
+      
+      // Log the raw response for debugging
+      console.log('Raw API Response:', content);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        rawResponse: content
       }));
     } catch (error: any) {
-      console.error('Anthropic API error:', {
-        message: error.message,
-        status: error.status,
-        type: error.type,
-        details: error.details,
-        stack: error.stack
-      });
-      return NextResponse.json(
-        { 
-          error: 'Failed to process receipt with Claude Vision',
-          details: error.message || 'Unknown error',
-          status: error.status,
-          type: error.type
-        },
+      console.error('OpenAI API error:', error);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to process receipt',
+          details: error.message,
+          type: 'API_ERROR'
+        }),
         { status: 500 }
       );
     }
-
-    console.log('Received response from Claude');
-    const responseContent = message.content[0];
-    console.log('Response type:', responseContent.type);
-    
-    if (responseContent.type !== 'text') {
-      console.error('Unexpected response type:', responseContent.type);
-      throw new Error('Unexpected response type from Claude');
-    }
-    
-    let parsedData;
-    try {
-      // Extract JSON from the response
-      const jsonMatch = responseContent.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (error) {
-      console.error('Error parsing Claude response:', error);
-      return NextResponse.json(
-        { error: 'Failed to parse receipt data' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(parsedData);
   } catch (error) {
     console.error('Error processing receipt:', error);
     return NextResponse.json(

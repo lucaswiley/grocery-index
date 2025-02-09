@@ -1,63 +1,58 @@
-import { useState, useRef } from 'react';
-import { CameraIcon } from '@heroicons/react/24/outline';
+import { useState, useCallback } from 'react';
+import { FilePond, registerPlugin } from 'react-filepond';
+import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
+import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
 
-export default function ReceiptUploader({ onUpload }: { onUpload: (file: File) => Promise<void> }) {
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+// Import FilePond styles
+import 'filepond/dist/filepond.min.css';
+import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css';
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+// Register plugins
+registerPlugin(FilePondPluginImagePreview, FilePondPluginFileValidateType);
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+interface ReceiptUploaderProps {
+  onUpload: (file: File) => Promise<void>;
+}
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    
-    if (e.dataTransfer.files?.length) {
-      await onUpload(e.dataTransfer.files[0]);
+export default function ReceiptUploader({ onUpload }: ReceiptUploaderProps) {
+  const [files, setFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleProcessFile = useCallback(async (fieldName: string, file: any, metadata: any, load: Function, error: Function, progress: Function, abort: Function) => {
+    try {
+      setIsUploading(true);
+      await onUpload(file);
+      load(file);
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      error(err.message);
+    } finally {
+      setIsUploading(false);
     }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) {
-      await onUpload(e.target.files[0]);
-    }
-  };
+  }, [onUpload]);
 
   return (
-    <div
-      className={`p-8 border-2 border-dashed rounded-lg text-center ${
-        isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <CameraIcon className="mx-auto h-12 w-12 text-gray-400" />
-      <div className="mt-4">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Upload Receipt
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </div>
-      <p className="mt-2 text-sm text-gray-600">
-        or drag and drop your receipt here
-      </p>
+    <div className="w-full max-w-md mx-auto">
+      <FilePond
+        files={files}
+        onupdatefiles={setFiles}
+        allowMultiple={false}
+        maxFiles={1}
+        server={{
+          process: handleProcessFile,
+        }}
+        name="file"
+        labelIdle='Drag & Drop your receipt or <span class="filepond--label-action">Browse</span>'
+        acceptedFileTypes={['image/*']}
+        imagePreviewHeight={170}
+        disabled={isUploading}
+        className={isUploading ? 'opacity-50' : ''}
+      />
+      {isUploading && (
+        <div className="text-center mt-2 text-sm text-gray-600">
+          Processing receipt...
+        </div>
+      )}
     </div>
   );
 }
