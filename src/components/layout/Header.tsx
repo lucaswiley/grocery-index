@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChartBarIcon, ReceiptPercentIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, ReceiptPercentIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 
 export default function Header() {
   const pathname = usePathname();
@@ -10,6 +10,7 @@ export default function Header() {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: ChartBarIcon },
     { href: '/receipts', label: 'My Receipts', icon: ReceiptPercentIcon },
+    { href: '/finance', label: 'Finance', icon: BanknotesIcon },
   ];
 
   return (
