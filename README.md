@@ -1,37 +1,20 @@
-# 🛒 Grocery Index
+# Grocery Index
 
 Tracking and analyzing grocery expenses using receipt photos. Upload your receipts and get instant insights into your spending patterns with detailed item breakdowns and price analysis.
 
-## ✨ Features
+## Features
 
-- 📸 **Smart Receipt Upload**:
-  - Drag-and-drop or click to upload
-  - Automatic image compression
-  - Support for JPEG and PNG formats
+- **Smart Receipt Upload**: Drag-and-drop or click to upload with automatic image compression. Supports JPEG and PNG formats.
 
-- 🧠 **AI-Powered Analysis**:
-  - OpenAI Vision API for accurate text extraction
-  - Automatic item and price detection
-  - Per-unit price calculation
+- **AI-Powered Analysis**: Uses OpenAI Vision API for accurate text extraction, automatic item and price detection, and per-unit price calculation.
 
-- 📊 **Rich Visualizations**:
-  - Bar chart showing total spending by item
-  - Scatter plot for price-per-unit analysis
-  - Color-coded indicators for expense levels
+- **Rich Visualizations**: Bar chart showing total spending by item, scatter plot for price-per-unit analysis, and color-coded indicators for expense levels.
 
-- 📓 **Detailed Receipt History**:
-  - Expandable receipt cards
-  - Chronological organization
-  - Item-level price breakdown
-  - Unit price information
+- **Detailed Receipt History**: Expandable receipt cards with chronological organization, item-level price breakdown, and unit price information.
 
-- 📱 **Modern UI/UX**:
-  - Clean, accessible interface
-  - Responsive design for all devices
-  - Interactive charts and tooltips
-  - Smooth animations and transitions
+- **Modern UI/UX**: Clean, accessible interface with responsive design, interactive charts, and smooth animations.
 
-## 💻 Tech Stack
+## Tech Stack
 
 - **Framework**: Next.js 14 with App Router
 - **Language**: TypeScript
@@ -41,7 +24,7 @@ Tracking and analyzing grocery expenses using receipt photos. Upload your receip
 - **AI**: OpenAI Vision API
 - **Image Processing**: browser-image-compression
 
-## 🔧 Setup
+## Setup
 
 1. Clone and install:
    ```bash
@@ -51,7 +34,7 @@ Tracking and analyzing grocery expenses using receipt photos. Upload your receip
    ```
 
 2. Configure environment:
-   ```env
+   ```
    # .env.local
    OPENAI_API_KEY=your_api_key_here
    ```
@@ -63,7 +46,7 @@ Tracking and analyzing grocery expenses using receipt photos. Upload your receip
 
 4. Open [http://localhost:3000](http://localhost:3000)
 
-## 📚 Project Structure
+## Project Structure
 
 ```
 src/
@@ -77,32 +60,23 @@ src/
 └── types/           # TypeScript interfaces
 ```
 
-## 📘 Usage Guide
+## Usage
 
-1. **Upload a Receipt**:
-   - Click upload or drag a photo
-   - Wait for AI processing
-   - Review extracted items
+1. **Upload a Receipt**: Click upload or drag a photo, wait for AI processing, and review extracted items.
 
-2. **Analyze Spending**:
-   - View total costs in bar chart
-   - Check unit prices in scatter plot
-   - Spot spending patterns
+2. **Analyze Spending**: View total costs in bar chart, check unit prices in scatter plot, and spot spending patterns.
 
-3. **Manage History**:
-   - Click receipts to expand
-   - View detailed breakdowns
-   - Track spending over time
+3. **Manage History**: Click receipts to expand, view detailed breakdowns, and track spending over time.
 
-## 🤝 Contributing
+## Contributing
 
-Contributions welcome! Please:
+Contributions welcome:
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Submit a pull request
 
-## 📄 License
+## License
 
-MIT License - Feel free to use and modify for your own receipt tracking needs.
+MIT License
