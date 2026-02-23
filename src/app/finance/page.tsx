@@ -7,7 +7,7 @@ import StatementUploader from '@/components/finance/StatementUploader';
 import TransactionTable from '@/components/finance/TransactionTable';
 import SpendingByCategory from '@/components/finance/SpendingByCategory';
 import SummaryCards from '@/components/finance/SummaryCards';
-import { DocumentTextIcon, TrashIcon, PlusIcon, Cog6ToothIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, TrashIcon, PlusIcon, Cog6ToothIcon, XMarkIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, CloudIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
 export default function FinancePage() {
   const {
@@ -24,7 +24,25 @@ export default function FinancePage() {
     clearAll,
     getSummary,
     getPeriod,
+    exportData,
+    importData,
+    autoSaveEnabled,
+    autoSaveStatus,
+    setupAutoSave,
+    disableAutoSave,
+    isFileSystemAccessSupported,
   } = useFinanceStorage();
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const success = await importData(file);
+    if (!success) {
+      alert('Failed to import data. Please check the file format.');
+    }
+    e.target.value = '';
+  };
 
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -111,6 +129,23 @@ export default function FinancePage() {
                 Nothing is sent to external servers or stored permanently on any backend.
               </p>
             </div>
+
+            <div className="mt-4 bg-gray-50 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900">Have a backup?</h3>
+              <p className="mt-1 text-sm text-gray-600 mb-3">
+                Restore your data from a previously exported JSON file.
+              </p>
+              <label className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
+                <ArrowUpTrayIcon className="h-4 w-4" />
+                Import Backup
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleImport}
+                />
+              </label>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -137,7 +172,7 @@ export default function FinancePage() {
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <label className="flex items-center gap-2 px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer">
                   <PlusIcon className="h-4 w-4" />
                   Add More
@@ -173,6 +208,60 @@ export default function FinancePage() {
                     }}
                   />
                 </label>
+
+                {/* Export button */}
+                <button
+                  onClick={exportData}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Export data to JSON file"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export
+                </button>
+
+                {/* Import button */}
+                <label className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
+                  <ArrowUpTrayIcon className="h-4 w-4" />
+                  Import
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleImport}
+                  />
+                </label>
+
+                {/* Autosave toggle */}
+                {isFileSystemAccessSupported && (
+                  autoSaveEnabled ? (
+                    <button
+                      onClick={disableAutoSave}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Autosave enabled - click to disable"
+                    >
+                      {autoSaveStatus === 'saving' ? (
+                        <CloudIcon className="h-4 w-4 animate-pulse" />
+                      ) : autoSaveStatus === 'saved' ? (
+                        <CheckCircleIcon className="h-4 w-4" />
+                      ) : autoSaveStatus === 'error' ? (
+                        <ExclamationCircleIcon className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <CloudIcon className="h-4 w-4" />
+                      )}
+                      Autosave On
+                    </button>
+                  ) : (
+                    <button
+                      onClick={setupAutoSave}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="Enable autosave to a local file"
+                    >
+                      <CloudIcon className="h-4 w-4" />
+                      Autosave
+                    </button>
+                  )
+                )}
+
                 <button
                   onClick={clearAll}
                   className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"

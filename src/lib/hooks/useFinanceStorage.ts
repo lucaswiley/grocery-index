@@ -10,6 +10,7 @@ import {
 } from '@/types/statement';
 
 const STORAGE_KEY = 'grocery-index-finance-data';
+const FILE_HANDLE_KEY = 'grocery-index-file-handle';
 
 export interface FinanceData {
   statements: ParsedStatement[];
@@ -22,6 +23,98 @@ interface StoredData extends FinanceData {
 }
 
 const CURRENT_VERSION = 1;
+
+// File System Access API types
+interface FileSystemFileHandle {
+  getFile(): Promise<File>;
+  createWritable(): Promise<FileSystemWritableFileStream>;
+  queryPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+  requestPermission(options?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+}
+
+interface FileSystemWritableFileStream extends WritableStream {
+  write(data: string | BufferSource | Blob): Promise<void>;
+  close(): Promise<void>;
+}
+
+declare global {
+  interface Window {
+    showSaveFilePicker?: (options?: {
+      suggestedName?: string;
+      types?: Array<{
+        description: string;
+        accept: Record<string, string[]>;
+      }>;
+    }) => Promise<FileSystemFileHandle>;
+    showOpenFilePicker?: (options?: {
+      types?: Array<{
+        description: string;
+        accept: Record<string, string[]>;
+      }>;
+      multiple?: boolean;
+    }) => Promise<FileSystemFileHandle[]>;
+  }
+}
+
+// Check if File System Access API is supported
+function isFileSystemAccessSupported(): boolean {
+  return typeof window !== 'undefined' &&
+         'showSaveFilePicker' in window &&
+         'showOpenFilePicker' in window;
+}
+
+// Store file handle in IndexedDB for persistence across sessions
+async function storeFileHandle(handle: FileSystemFileHandle): Promise<void> {
+  try {
+    const db = await openHandleDB();
+    const tx = db.transaction('handles', 'readwrite');
+    const store = tx.objectStore('handles');
+    await store.put(handle, FILE_HANDLE_KEY);
+  } catch (err) {
+    console.error('Error storing file handle:', err);
+  }
+}
+
+async function getStoredFileHandle(): Promise<FileSystemFileHandle | null> {
+  try {
+    const db = await openHandleDB();
+    const tx = db.transaction('handles', 'readonly');
+    const store = tx.objectStore('handles');
+    const request = store.get(FILE_HANDLE_KEY);
+    return new Promise((resolve) => {
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+  } catch (err) {
+    console.error('Error getting file handle:', err);
+    return null;
+  }
+}
+
+async function clearStoredFileHandle(): Promise<void> {
+  try {
+    const db = await openHandleDB();
+    const tx = db.transaction('handles', 'readwrite');
+    const store = tx.objectStore('handles');
+    await store.delete(FILE_HANDLE_KEY);
+  } catch (err) {
+    console.error('Error clearing file handle:', err);
+  }
+}
+
+function openHandleDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('finance-file-handles', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('handles')) {
+        db.createObjectStore('handles');
+      }
+    };
+  });
+}
 
 function getDefaultData(): FinanceData {
   return {
@@ -118,12 +211,29 @@ export function recalculateSummary(transactions: Transaction[]): {
 export function useFinanceStorage() {
   const [data, setData] = useState<FinanceData>(getDefaultData);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, and restore file handle if available
   useEffect(() => {
     const loaded = loadFromStorage();
     setData(loaded);
     setIsLoaded(true);
+
+    // Try to restore file handle from IndexedDB
+    if (isFileSystemAccessSupported()) {
+      getStoredFileHandle().then(async (handle) => {
+        if (handle) {
+          // Verify we still have permission
+          const permission = await handle.queryPermission({ mode: 'readwrite' });
+          if (permission === 'granted') {
+            setFileHandle(handle);
+            setAutoSaveEnabled(true);
+          }
+        }
+      });
+    }
   }, []);
 
   // Save to localStorage whenever data changes (after initial load)
@@ -132,6 +242,40 @@ export function useFinanceStorage() {
       saveToStorage(data);
     }
   }, [data, isLoaded]);
+
+  // Autosave to file when data changes and autosave is enabled
+  useEffect(() => {
+    if (!isLoaded || !autoSaveEnabled || !fileHandle) return;
+
+    const saveToFile = async () => {
+      try {
+        setAutoSaveStatus('saving');
+        const writable = await fileHandle.createWritable();
+        const exportData: StoredData = {
+          ...data,
+          version: CURRENT_VERSION,
+          lastUpdated: new Date().toISOString(),
+        };
+        await writable.write(JSON.stringify(exportData, null, 2));
+        await writable.close();
+        setAutoSaveStatus('saved');
+
+        // Reset status after a delay
+        setTimeout(() => setAutoSaveStatus('idle'), 2000);
+      } catch (err) {
+        console.error('Autosave error:', err);
+        setAutoSaveStatus('error');
+        // If we lost permission, disable autosave
+        setAutoSaveEnabled(false);
+        setFileHandle(null);
+        clearStoredFileHandle();
+      }
+    };
+
+    // Debounce saves
+    const timeoutId = setTimeout(saveToFile, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [data, isLoaded, autoSaveEnabled, fileHandle]);
 
   // Derive transactions from statements - this is the single source of truth
   const transactions = useMemo(() => {
@@ -243,6 +387,117 @@ export function useFinanceStorage() {
     setData(getDefaultData());
   }, []);
 
+  // Export data to JSON file (manual download)
+  const exportData = useCallback(() => {
+    const exportObj: StoredData = {
+      ...data,
+      version: CURRENT_VERSION,
+      lastUpdated: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `finance-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [data]);
+
+  // Import data from JSON file
+  const importData = useCallback(async (file: File): Promise<boolean> => {
+    try {
+      const text = await file.text();
+      const parsed: StoredData = JSON.parse(text);
+
+      // Validate structure
+      if (!parsed.statements || !Array.isArray(parsed.statements)) {
+        throw new Error('Invalid data format: missing statements');
+      }
+
+      setData({
+        statements: parsed.statements,
+        customCategories: parsed.customCategories || {},
+        lastUpdated: new Date().toISOString(),
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Import error:', err);
+      return false;
+    }
+  }, []);
+
+  // Setup autosave to a file (File System Access API)
+  const setupAutoSave = useCallback(async (): Promise<boolean> => {
+    if (!isFileSystemAccessSupported()) {
+      console.warn('File System Access API not supported');
+      return false;
+    }
+
+    try {
+      const handle = await window.showSaveFilePicker!({
+        suggestedName: 'finance-data.json',
+        types: [{
+          description: 'JSON Files',
+          accept: { 'application/json': ['.json'] },
+        }],
+      });
+
+      // Write initial data
+      const writable = await handle.createWritable();
+      const exportObj: StoredData = {
+        ...data,
+        version: CURRENT_VERSION,
+        lastUpdated: new Date().toISOString(),
+      };
+      await writable.write(JSON.stringify(exportObj, null, 2));
+      await writable.close();
+
+      // Store handle for future sessions
+      await storeFileHandle(handle);
+
+      setFileHandle(handle);
+      setAutoSaveEnabled(true);
+      setAutoSaveStatus('saved');
+
+      return true;
+    } catch (err) {
+      // User cancelled or error
+      console.error('Setup autosave error:', err);
+      return false;
+    }
+  }, [data]);
+
+  // Disable autosave
+  const disableAutoSave = useCallback(async () => {
+    setAutoSaveEnabled(false);
+    setFileHandle(null);
+    setAutoSaveStatus('idle');
+    await clearStoredFileHandle();
+  }, []);
+
+  // Load from autosave file
+  const loadFromAutoSaveFile = useCallback(async (): Promise<boolean> => {
+    if (!fileHandle) return false;
+
+    try {
+      const permission = await fileHandle.requestPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        setAutoSaveEnabled(false);
+        setFileHandle(null);
+        return false;
+      }
+
+      const file = await fileHandle.getFile();
+      return await importData(file);
+    } catch (err) {
+      console.error('Load from autosave error:', err);
+      return false;
+    }
+  }, [fileHandle, importData]);
+
   const getSummary = useCallback(() => {
     return recalculateSummary(transactions);
   }, [transactions]);
@@ -272,5 +527,15 @@ export function useFinanceStorage() {
     clearAll,
     getSummary,
     getPeriod,
+    // Export/Import
+    exportData,
+    importData,
+    // Autosave
+    autoSaveEnabled,
+    autoSaveStatus,
+    setupAutoSave,
+    disableAutoSave,
+    loadFromAutoSaveFile,
+    isFileSystemAccessSupported: isFileSystemAccessSupported(),
   };
 }

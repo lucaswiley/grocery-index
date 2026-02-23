@@ -68,6 +68,14 @@ src/
 
 3. **Manage History**: Click receipts to expand, view detailed breakdowns, and track spending over time.
 
+## Roadmap
+
+- [ ] **Dataset Snapshots** - Save different snapshots of datasets (e.g., "Last Year Expenses", "Last Month")
+- [ ] **Banking Integration** - Integrate directly with banking providers (Plaid, etc.)
+- [ ] **Multi-user Security** - Make this secure so other people can use it
+- [ ] **Public Deployment** - Deploy to the internet securely
+- [ ] **Data Encryption** - Encrypt all data at rest and in transit
+
 ## Contributing
 
 Contributions welcome:

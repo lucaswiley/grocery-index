@@ -327,8 +327,11 @@ export default function TransactionTable({
         </div>
       )}
 
-      <div className="px-4 py-3 border-t border-gray-200 text-sm text-gray-500">
-        Showing {sortedTransactions.length} of {transactions.length} transactions
+      <div className="px-4 py-3 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-center">
+        <span>Showing {sortedTransactions.length} of {transactions.length} transactions</span>
+        <span className="font-medium text-gray-900">
+          Subtotal: {sortedTransactions.reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+        </span>
       </div>
     </div>
   );
